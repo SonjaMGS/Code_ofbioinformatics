@@ -1,0 +1,95 @@
+import numpy as np
+import pickle
+import scipy.stats as st
+import matplotlib.pyplot as plt
+
+with open('dmd_data.pkl', 'rb') as f:
+     datadict = pickle.load(f)
+genes = datadict['genes']
+labels = datadict['labels']
+data = datadict['data']
+
+DMD = np.where(labels == 1)[0]
+NDMD = np.where(labels == 0)[0]
+#control tht actually 23 sick and 14 controls
+print(len(DMD))
+print(len(NDMD))
+
+pvalueNDMD = []
+for i in range(len(data)):
+    ndistNDMD = st.normaltest(data[i][0:14], axis=0, nan_policy ='propagate')  #DATA[I,NMDM]
+    pvalueNDMD.append(ndistNDMD.pvalue)
+    
+X = np.array(pvalueNDMD)
+normalNDMD = np.where(X > 0.05)[0]
+print('Normal NDMD = ', len(normalNDMD))
+
+pvalues = np.sort(pvalueNDMD)
+dex=0
+for k in range( 0, len(pvalueNDMD)):
+    if pvalues[k] <= k/len(pvalueNDMD)*0.05:
+        dex = dex + 1
+    
+
+        
+print("This is corrected values from Benji %f " %dex)
+
+pvalueDMD = []
+for i in range(len(data)):
+    ndistDMD = st.normaltest(data[i][14:], axis=0, nan_policy ='propagate') 
+    pvalueDMD.append(ndistDMD.pvalue)
+Y = np.array(pvalueDMD)
+normalDMD = np.where(Y > 0.05)[0]
+print('Normal DMD = ', len(normalDMD))    
+
+pvalues = np.sort(pvalueDMD)
+dex=0
+for k in range( 0, len(pvalueDMD)):
+    if pvalues[k] <= k/len(pvalueDMD)*0.05:
+        dex = dex + 1
+    
+
+        
+print("This is corrected values OF THE DMD from Benji %f " %dex)
+
+[T, pTtest] = st.ttest_ind(data[:, DMD], data[:, NDMD], axis=1, equal_var=False)
+# count the number of differentially expressed genes
+dex_true = np.sum(pTtest< 0.05)
+print("Dex_true from original data is %d" %dex_true)
+print(dex_true)
+print(pTtest)
+
+dex=0
+pvalues = np.sort(pTtest)
+for k in range( 0, len(pTtest)):
+    if pvalues[k] <= k/len(pTtest)*0.05:
+        dex = dex + 1
+print(dex)
+
+# implemented
+import statsmodels.sandbox.stats.multicomp
+multi1 = statsmodels.sandbox.stats.multicomp.multipletests(pTtest, alpha=0.05, method='fdr_bh', is_sorted=False, returnsorted=False)
+
+x = np.where(multi1[0] == True) [0]     
+print(len(x))
+z = genes [x]
+print(z)
+# make a document
+#output = open('genes.txt', 'w')
+#for i in z:
+#    output.write(i,'\n')
+#output.close()
+
+
+    
+# plot the histogram of the t-statistics and p-values you calculated
+fig = plt.figure()
+ax = fig.add_subplot(1, 2, 1)
+ax.hist(T, bins=10, edgecolor='k')
+ax.set_xlabel('T statistic value')
+ax.set_ylabel('Frequency')
+ax = fig.add_subplot(1, 2, 2)
+ax.hist(pTtest, bins=20, edgecolor='k')
+ax.set_xlabel('p-value')
+ax.set_ylabel('Frequency')
+plt.suptitle('Original data')
